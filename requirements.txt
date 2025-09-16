@@ -1,0 +1,7 @@
+paddlepaddle==3.0.0
+paddleocr
+opencv-python-headless==4.8.1.78
+flask==2.3.3
+pillow==10.0.1
+numpy==1.24.3
+boto3
