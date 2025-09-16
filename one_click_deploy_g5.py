@@ -89,19 +89,34 @@ def deploy_paddleocr_g5():
     
     # 构建和推送镜像
     print("🔨 构建Docker镜像...")
-    commands = [
-        f"docker build -f Dockerfile_gpu -t {ECR_REPO_NAME} .",
-        f"docker tag {ECR_REPO_NAME}:latest {image_uri}",
-        f"aws ecr get-login-password --region {REGION} | docker login --username AWS --password-stdin {account_id}.dkr.ecr.{REGION}.amazonaws.com",
-        f"docker push {image_uri}"
-    ]
     
-    for cmd in commands:
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-        if result.returncode != 0:
-            print(f"❌ 命令失败: {cmd}")
-            print(f"错误: {result.stderr}")
-            return None
+    # 安全的命令执行，避免shell注入
+    try:
+        # Docker build
+        subprocess.run(['docker', 'build', '-f', 'Dockerfile_gpu', '-t', ECR_REPO_NAME, '.'], 
+                      check=True, capture_output=True, text=True)
+        
+        # Docker tag
+        subprocess.run(['docker', 'tag', f'{ECR_REPO_NAME}:latest', image_uri], 
+                      check=True, capture_output=True, text=True)
+        
+        # ECR login
+        login_result = subprocess.run(['aws', 'ecr', 'get-login-password', '--region', REGION], 
+                                    capture_output=True, text=True, check=True)
+        login_password = login_result.stdout.strip()
+        
+        subprocess.run(['docker', 'login', '--username', 'AWS', '--password-stdin', 
+                       f'{account_id}.dkr.ecr.{REGION}.amazonaws.com'], 
+                      input=login_password, text=True, check=True)
+        
+        # Docker push
+        subprocess.run(['docker', 'push', image_uri], 
+                      check=True, capture_output=True, text=True)
+        
+    except subprocess.CalledProcessError as e:
+        print(f"❌ 命令失败: {e.cmd}")
+        print(f"错误: {e.stderr}")
+        return None
     
     print("✅ 镜像推送成功")
     
